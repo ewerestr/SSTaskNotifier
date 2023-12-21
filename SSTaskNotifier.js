@@ -13,15 +13,17 @@ function myFunction()
     var tgSeqVertLength         = 5;    // Count of lines that will be parsed
     var tgSeqRecipientLetter    = 'G';  // Letter of col that contains recipient names
     var tgSeqUsernameLetter     = 'H';  // Letter of col that contain Telegram username (For using with @)
+    var tgSeqIsUserVacation     = 'I';  // Letter of col that contain checkboxes for disabling telegram taging via @
 
-    // Service constants
-    var tgBotKey                = "";   // Telegram Bot Token
-    var tgMainChatId            = "";   // Telegram ChatId
+    // Telegram Bot API constants
+    var tgBotKey                = "";   // Telegram Bot API key (Bot token)
+    var tgMainChatId            = "";   // ID of chat that will get messages from bot (UserID or ChatID)
 
     // Service variables
-    var execs = "";
-    var tgmap = {};
-    var msgmap = {};
+    var execs = "";     // Variable that holds all executors names that were explored during parsing the tab
+    var vacmap = {};    // Variable that holds info about users those shouldn't be dusturbed by taging
+    var tgmap = {};     // Variable that contains relations between user's name and Telegram Username (Something like Map\HashMap)
+    var msgmap = {};    // Variable that contains message parts personal for a user (Something like Map\HashMap)
   
     //parsing TG sequence (tgSeq)
     for (var vpos = tgSeqVertStartLine; vpos < tgSeqVertStartLine+tgSeqVertLength; vpos++)
@@ -31,8 +33,10 @@ function myFunction()
         {
             var us = SpreadsheetApp.getActiveSheet().getRange(tgSeqRecipientLetter+vpos).getValue();
             var un = SpreadsheetApp.getActiveSheet().getRange(tgSeqUsernameLetter+vpos).getValue();
+            var vc = SpreadsheetApp.getActiveSheet().getRange(tgSeqIsUserVacation+vpos).getValue();
             tgmap[us] = un;
             msgmap[us] = "";
+            if (vc == true) vacmap[us] = true;
         }
     }
     
@@ -41,7 +45,7 @@ function myFunction()
     {
         var t = SpreadsheetApp.getActiveSheet().getRange(tsSeqTaskNameLetter+vpos1).getValue();
         var d = SpreadsheetApp.getActiveSheet().getRange(tsSeqDeadlineLetter+vpos1).getValue();
-        var m = "(До " + d + ") " + t + "\n";
+        var m = " - " + ((d == null || d == "" || d == undefined) ? "(Дата не указана) " : "(До " + d + ") ") + t + "\n";
         if (SpreadsheetApp.getActiveSheet().getRange(tsSeqTaskStatusLetter+vpos1).getValue() == false && (t != null && t != ""))
         {
             var e = SpreadsheetApp.getActiveSheet().getRange(tsSeqTaskExecutorLetter+vpos1).getValue();
@@ -53,8 +57,12 @@ function myFunction()
             }
             else
             {
-                if (!execs.includes(e)) execs += e + ":";
-                msgmap[e] != null && msgmap != undefined ? msgmap[e] += m : msgmap[e] = m;
+                if (e == null || e == "" || e == undefined) msgmap["undef"] != null && msgmap["undef"] != undefined ? msgmap["undef"] += m : msgmap["undef"] = m;
+                else
+                {
+                  if (!execs.includes(e)) execs += e + ":";
+                  msgmap[e] != null && msgmap[e] != undefined ? msgmap[e] += m : msgmap[e] = m;
+                }
             }
         }
     }
@@ -64,11 +72,12 @@ function myFunction()
     var s = execs.slice(0,-1).split(":");
     for (vpos2 = 0; vpos2 < s.length; vpos2++)
     {
-        var x = tgmap[s[vpos2]] != null && tgmap[s[vpos2]] != undefined ? (s[vpos2] + " (@" + tgmap[s[vpos2]]) + "):" : s[vpos2];
+        var x = tgmap[s[vpos2]] != null && tgmap[s[vpos2]] != undefined ? (s[vpos2] +(vacmap[s[vpos2]] == true ? " (Отпуск):" : " (@" + tgmap[s[vpos2]] + "):")) : s[vpos2] + ":";
         f += x + "\n" + msgmap[s[vpos2]] + "\n";
     }
-    f += "\n LINT-TO-TAB"
-    
+    f += "Не назначен ответственный:\n" + msgmap["undef"] + "\n";
+    f += "\n LINK-TO-TAB";
+  
     // Sending whole message to Telegram
     UrlFetchApp.fetch("https://api.telegram.org/bot"+tgBotKey+"/sendMessage", {
            'method' : 'post',

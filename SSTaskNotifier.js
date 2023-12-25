@@ -49,9 +49,10 @@ function myFunction()
         if (SpreadsheetApp.getActiveSheet().getRange(tsSeqTaskStatusLetter+vpos1).getValue() == false && (t != null && t != ""))
         {
             var e = SpreadsheetApp.getActiveSheet().getRange(tsSeqTaskExecutorLetter+vpos1).getValue();
+            if (e.includes(" ")) e = e.replace(" ", "");
             if (e.includes(","))
             {
-                var a = e.replace(" ", "").split(",");
+                var a = e.split(",");
                 a.forEach((elem) => (msgmap[elem] != null && msgmap[elem] != undefined ? (msgmap[elem] += m) : (msgmap[elem] = m)));
                 a.forEach((elem1) => (execs.includes(elem1) ? "" : execs += elem1 + ":"));
             }
